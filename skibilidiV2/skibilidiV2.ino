@@ -28,26 +28,26 @@ float LARGE_ERROR_THRESHOLD = 6;
 float TURN_THRESHOLD = 30;
 
 // Correction PWM: when we need to steer LEFT (robot is too close to wall on right)
-int STRONG_INNER_PWM = 200;
-int STRONG_OUTER_PWM = 250;
+int STRONG_INNER_PWM = 255;
+int STRONG_OUTER_PWM = 255;
 
 int MILD_INNER_PWM = 70;
 int MILD_OUTER_PWM = 255;
 
-int STRAIGHT_LEFT_PWM = 255;
-int STRAIGHT_RIGHT_PWM = 230;
+int STRAIGHT_LEFT_PWM = 240;
+int STRAIGHT_RIGHT_PWM = 255;
 
 // Turning PWM & duration
 int TURN_INNER_PWM = 0;
 int TURN_OUTER_PWM = 255;
-int TURN_DURATION = 323; //800 funka nästan på 0.8 multi med 230 speed
-int PRE_TURN_DELAY = 26;
-int POST_TURN_DURATION = 500;
+int TURN_DURATION = 250; //800 funka nästan på 0.8 multi med 230 speed
+int PRE_TURN_DELAY = 0;
+int POST_TURN_DURATION = 200;
 
 
-int MILD_DURATION = 90; //90
+int MILD_DURATION = 40; //90
 int STRONG_DURATION = 150;
-int MILD_ADJUST_DURATION = 130; //150
+int MILD_ADJUST_DURATION = 100; //150
 int STRONG_ADJUST_DURATION = 200;
 
 struct DistancePair {
@@ -70,33 +70,30 @@ void sortFloatArray(float arr[], int size) {
 
 
 DistancePair getAverageDistances() {
+
   DistancePair d;
-  float sumRight[5];
-  float sumLeft[5];
-  float totalRight = 0;
-  float totalLeft = 0;
+  float sumRight = 0;
+  float sumLeft = 0;
 
-  for (int i = 0; i < 5; i++) {
-    sumRight[i] = readDistance(TRIG_RIGHT, ECHO_RIGHT);
-    delay(5);
-    sumLeft[i] = readDistance(TRIG_LEFT, ECHO_LEFT);
-    delay(5);
+  // Take 3 readings and sum them
+  for (int i = 0; i < 3; i++) {
+    float r = readDistance(TRIG_RIGHT, ECHO_RIGHT);
+    delay(50);
+    float l = readDistance(TRIG_LEFT, ECHO_LEFT);
+
+    // Optional: discard 0 or obviously bad readings
+    
+
+    delay(50); // avoid sensor echo overlap
   }
 
-  sortFloatArray(sumRight, 5);
-  sortFloatArray(sumLeft, 5);
-  
-  for(int i = 1; i<5; i++) {
-    totalRight += sumRight[i];
-    totalLeft += sumLeft[i];
-  }
-  
-  // Use median (middle of sorted array) for robustness against outliers
-  d.right = totalRight / 4;
-  d.left = totalLeft / 4;
+  // Compute average
+  d.right = sumRight / 3.0;
+  d.left = sumLeft / 3.0;
 
   return d;
 }
+
 
 
 
@@ -153,7 +150,7 @@ void mildCorrection( char direction, int error, long vcc) {
     delay(MILD_ADJUST_DURATION * AdjustTurnFactor);
     setMotor(STRAIGHT_RIGHT_PWM, STRAIGHT_LEFT_PWM, 1);
     delay(MILD_DURATION * Adjustfactor);
-    setMotor(220, MILD_OUTER_PWM, 1);
+    setMotor(MILD_INNER_PWM, MILD_OUTER_PWM, 1);
     delay(MILD_ADJUST_DURATION * AdjustTurnFactor);
     setMotor(STRAIGHT_LEFT_PWM, STRAIGHT_RIGHT_PWM, 1);
   }
@@ -253,18 +250,7 @@ void computeDriving(long distRight, long vcc){
   }
 }
 
-// void computeDriving(float distRight, float distLeft, long vcc) {
-//   float delta = distRight - distLeft;
 
-//   if (distRight > distLeft) {
-//     mildCorrection('r', 0, vcc);
-//     global_debug = -1;
-//   }
-//   else if (distLeft > distRight) {
-//     mildCorrection('l', 0, vcc);
-//     global_debug = 1;
-//   }
-// }
 
 long readVcc() {
   // Read 1.1V reference against AVcc
@@ -294,7 +280,7 @@ void setup() {
   Serial.begin(9600);
   delay(5000);
   long vcc = 0;
-  while (vcc <= 4000) {
+  while (vcc <= 5300) {
     vcc = readVcc();
     distLeft = readDistance(TRIG_LEFT, ECHO_LEFT);
     delay(5);
@@ -316,19 +302,7 @@ void setup() {
 }
 
 
-void updateVariable(String input) {
 
-input.remove(0,1);
-int spaceIndex = input.indexOf(' ');
-if (spaceIndex > 0) {
-  String varName = input.substring(0, spaceIndex);
-  String varVal = input.substring(spaceIndex + 1);
-  int value = varVal.toInt();
-  Serial.println(varName);
-  Serial.println(value);
-}
-
-}
 
 void loop() {
   vcc = readVcc();
@@ -336,7 +310,7 @@ void loop() {
   distRight = avg.right;
   distLeft = avg.left;
 
-  
+
   while((distRight > 60 || distLeft > 100) || (distRight > 30 && distLeft > 30) || (distLeft < 1 || distRight < 1)) {
     setMotor(STRAIGHT_LEFT_PWM, STRAIGHT_RIGHT_PWM, 1);
     delay(20);
